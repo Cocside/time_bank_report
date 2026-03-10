@@ -1,0 +1,84 @@
+#include "TOTVS.CH"
+#include "PROTHEUS.CH"
+#include "totvs.framework.treports.integratedprovider.th"
+#include "msobject.ch"
+#include "tlpp-core.th"
+#include "tlpp-rest.th"
+
+//-------------------------------------------------------------------
+/*/{Protheus.doc} PONTO
+RELATÓRIO DE BANCO DE HORAS
+
+@author Helder Vieira Medeiros
+@since 17/12/2025
+@version 1.0
+/*/
+//-------------------------------------------------------------------
+namespace ponto.resultados.resultados
+//declara o ambiente, as tabelas a serem utilizadas e o nome do relatório
+@totvsFrameworkTReportsIntegratedProvider(active=.T., team="SIGAPON", tables="SPI,SPL,CTT,SRA,SRV", name="Resultados", country="ALL", initialRelease="12.1.2210")
+
+class ResultadosObjects from totvs.framework.treports.integratedprovider.IntegratedProvider
+    public method new() as object
+    public method getData() as object
+    public method getSchema() as object
+    public method getAreas() as array
+    public method getDescription() as character
+
+endclass
+
+method new() as object class ResultadosObjects
+    _Super:new()
+    self:appendArea("Ponto Eletronico")          //Espeaço a ser arzamezado dentro do SmartView
+    self:setDisplayName("Resumo Banco de Horas") // Sub tit
+    self:setDescription("Resumo Banco de Horas") //Título
+
+return self
+method getDescription() as character class ResultadosObjects
+return "Resumo Banco de Horas"
+  
+method getAreas() as array class ResultadosObjects
+return {"Ponto Eletrônico"}
+  
+
+method getData(nPage as Numeric, oFilter as object) as object class ResultadosObjects
+//declara a Query e o Where
+local cQuery as character
+local cWhere as character 
+
+        cWhere := " SPL.D_E_L_E_T_ = ' ' "
+
+        //Inicia a Query
+        cQuery := "SELECT #QueryFields#"                            + CRLF
+        cQuery += " FROM " + RetSQLName("SPL") + " SPL "            + CRLF
+        cQuery += " LEFT JOIN " + RetSQLName("SRV") + " SRV ON "    + CRLF
+        cQuery += "     SPL.PL_PD = SRV.RV_COD "                    + CRLF
+        cQuery += "     AND SRV.D_E_L_E_T_ = ' ' "                  + CRLF
+        cQuery += " LEFT JOIN " + RetSQLName("CTT") + " CTT ON "    + CRLF
+        cQuery += "     SPL.PL_CC = CTT.CTT_CUSTO "                 + CRLF
+        cQuery += "     AND CTT.D_E_L_E_T_ = ' ' "                  + CRLF
+        cQuery += " WHERE #QueryWhere# " //a chave #QheryWhere# adciciona o conteudo do cWhere                           
+        
+        self:setQuery(cQuery) // <- chama a Query
+        conout("Query: " + cQuery)
+
+        self:setWhere(cWhere) // <- chama o Where
+        conout("Where: " + cWhere)
+   
+        self:setOrder("SPL.PL_MAT")  //<-Ordena por matricula
+    //endif 
+return self:oData
+
+method getSchema() as object class ResultadosObjects
+
+    //declara todos campos a serem utilizados do getData
+    self:addProperty("FILIAL"           , "Filial"                      , "string", "Filial"                      , "SPL.PL_FILIAL") //SPL
+    self:addProperty("MATRICULA"        , "Matricula do Colab"          , "string", "Matrícula"                   , "SPL.PL_MAT") //SPL
+    self:addProperty("VERBA"            , "Verba para o Calculo"        , "string", "Verba"                       , "SPL.PL_PD") //SPL
+    self:addProperty("DESCRICAO_VERBA"  , "Descrição da Verba"          , "string", "Descrição da Verba"          , "SRV.RV_DESC") //SRV
+    self:addProperty("CENTRO_DE_CUSTO"  , "Centro de Custo"             , "string", "Centro de custo"             , "SPL.PL_CC") // SPL
+    self:addProperty("DESCRICAO_CC"     , "Descrição do Centro de Custo", "string", "Descrição do Centro de Custo", "CTT.CTT_DESC01") //CTT
+    self:addProperty("DATA"             , "Data"                        , "date"  , "Data"                        , "SPL.PL_DATA") //SPL
+    self:addProperty("HORAS"            , "HORAS"                       , "number", "Horas"                       , "SPL.PL_HORAS") //SPL
+    
+return self:oSchema
