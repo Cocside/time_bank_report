@@ -1,0 +1,70 @@
+#INCLUDE 'HBUTTON.CH'
+#INCLUDE 'TOPCONN.CH'
+#INCLUDE 'TBICONN.CH'
+#INCLUDE 'FWBROWSE.CH'
+#INCLUDE 'PROTHEUS.CH'
+#INCLUDE 'PARMTYPE.CH'
+#INCLUDE 'FWMVCDEF.CH'
+#INCLUDE "Totvs.ch"
+#INCLUDE "TBICODE.CH"
+#INCLUDE 'TRYEXCEPTION.CH'
+
+Local aDados    := {}
+Local aFornec	:= {}
+Local lExistZ1	:= .F.
+Local nCount	:= 0
+Local nLoop		:= 0
+Local lContinua := .T.
+Local cTxtLog	:= ""
+Local aFiles	:= {}
+Local cTab      := GetNextAlias()
+Local cFatura 	:= ""
+
+For nLoop := 1 to  Len(aDados)
+	//IncProc("Importando arquivo...")
+
+	aFornec := fVerForn(aDados[nLoop,5])
+
+	//cino.20240216.sn
+	If aFornec[1] == .F.
+		U_xImpGLog(Alltrim(aDados[nLoop,14]),aDados[nLoop,1],"Fornecedor nÃo cadastrado! CNPJ " + aDados[nLoop,5] , aLogPrc)
+		Loop
+	EndIf 
+	//cino.20240216.en
+
+	dbSelectArea("SZ1")
+	dbSetOrder(1)
+	lExistZ1 := dbSeek(xFilial("SZ1") +  PadR(aDados[nLoop,1], TamSx3("Z1_DOC")[1]) + PadR(aDados[nLoop,2], TamSx3("Z1_SERIE")[1]) + PadR(aFornec[2], TamSx3("Z1_FORNECE")[1]) + PadR(aFornec[3], TamSx3("Z1_LOJA")[1]))
+//O início do fonte já existia; as informações acima foram incluídas apenas para contextualização.
+
+// Helder Medeiros - 27/02/2026 - Validação do cFatura da SE2,
+// caso exista não realize a integração	
+//Inicio da customização		
+	cFatura := aDados[nLoop,14] // le o arquivo no for nLoop
+
+	beginsql alias cTab // grava os dados da SE2 na tabela temporaria cTab
+		SELECT SE2.E2_Fatura
+		
+		FROM %table:SE2% SE2
+		WHERE SE2.E2_FILIAL = %xFilial:SE2%
+		AND SE2.E2_Fatura = %Exp:cFatura%
+		AND SE2.%notdel%
+	endsql
+
+	dbSelectArea(cTab) // abre  tabela cTab
+	(cTab)->(dbgotop()) //posiciona em na posição 1 da tabela cTab
+
+	if !(cTab)->(Eof())
+		ConOut("O cFatura já está existe!")
+		U_xImpGLog(Alltrim(aDados[nLoop,14]),aDados[nLoop,1],"cFatura não encontrado -> " + aDados[nLoop,14] , aLogPrc)
+		__CopyFile(cCaminho + aFiles[nX,1],cPathErr + aFiles[nX,1])
+
+		If FERASE(cCaminho + aFiles[nX,1]) == -1
+			U_xImpGLog("","","XIMPARQ - " + cCaminho + aFiles[nX,1] + " O arquivo nÃ£o pode ser apagado.", aLogPrc)
+			ConOut("XIMPARQ - " + cCaminho + aFiles[nX,1] + " O arquivo nÃ£o pode ser apagado." ) 
+		Endif 
+		//U_xImpGLog(Alltrim(aDados[nLoop,14]),aDados[nLoop,1],"Fornecedor nÃ£o cadastrado! CNPJ " + aDados[nLoop,5] , aLogPrc)
+
+	EndIf
+//Fim da customização
+//Cod continua...
